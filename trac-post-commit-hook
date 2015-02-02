@@ -172,21 +172,13 @@ class CommitHook:
 
         for tkt_id, cmds in tickets.iteritems():
             try:
-                db = self.env.get_db_cnx()
+                with self.env.db_transaction:
+                    ticket = Ticket(self.env, int(tkt_id))
 
-                ticket = Ticket(self.env, int(tkt_id), db)
-                for cmd in cmds:
-                    cmd(ticket)
+                    for cmd in cmds:
+                        cmd(ticket)
 
-                # determine sequence number...
-                cnum = 0
-                tm = TicketModule(self.env)
-                for change in tm.grouped_changelog_entries(ticket, db):
-                    if change['permanent']:
-                        cnum += 1
-
-                ticket.save_changes(self.author, self.msg, self.now, db, cnum+1)
-                db.commit()
+                    ticket.save_changes(self.author, self.msg, self.now)
 
                 tn = TicketNotifyEmail(self.env)
                 tn.notify(ticket, newticket=0, modtime=self.now)
